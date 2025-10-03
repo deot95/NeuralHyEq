@@ -3,7 +3,9 @@
 This repository contains the implementation code associated with the paper:
 
 > **Title**: Approximation of Hybrid Dynamical Systems via Neural Hybrid Equations
+> 
 > **Authors**: Daniel E. Ochoa, Ricardo G. Sanfelice
+> 
 > **Submitted to**: American Control Conference (ACC) 2026
 
 The code demonstrates training neural networks to approximate hybrid system dynamics by evolving nominal and neural solutions in tandem with gradient-based optimization through hybrid time. The following animation shows the neural network learning to approximate a bouncing ball system, with the cost decreasing over training iterations.
