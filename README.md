@@ -1,7 +1,3 @@
-# NeuralHyEq - Submitted to ACC 2026
-
-Neural approximation of hybrid dynamical systems using differentiable hybrid equations solvers.
-
 ## Overview
 
 This repository contains the implementation code associated with the paper:
