@@ -12,7 +12,7 @@ The code demonstrates training neural networks to approximate hybrid system dyna
 
 ![Training Progress](neural_hybrid_data/training_animation_2025-09-29_22-48-19.gif)
 
-This implementation corresponds to the training methodology described in the ACC 2026 submission. As mentioned in the paper:
+As mentioned in the paper:
 
 > "We employ a loss function ℒ that measures the error between nominal sample solutions and neural solutions, and find suitable parameters by optimizing ℒ via gradient-based methods. For this, we use a Julia-based hybrid equations solver with autodifferentiable numerical integration, which enables backpropagation of gradients through the continuous-time and discrete-time evolution of ℋₐ."
 
