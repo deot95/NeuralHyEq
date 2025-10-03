@@ -511,11 +511,11 @@ function create_training_callback(θ_initial, aug_sys, x0, max_hybrid_time, conf
                     flow_color=[:steelblue, :orange], jump_color=[:navy, :coral], label=["True" "Neural"])
 
                 # Cost evolution plot with both instantaneous and moving average
-                plt_cost = plot(title="Cost Evolution", xlabel="Iteration", ylabel="Cost (log scale)", yscale=:log10)
+                plt_cost = plot(title="Loss Evolution", xlabel="Iteration", ylabel="Loss (log scale)", yscale=:log10)
 
                 # Plot instantaneous cost with transparency
                 plot!(plt_cost, 1:length(cost_history), cost_history,
-                    linewidth=1, alpha=0.3, label="Instantaneous Cost", color=:crimson)
+                    linewidth=1, alpha=0.3, label="Instantaneous Loss", color=:crimson)
 
                 # Add moving averages for cleaner visualization  
                 if length(cost_history) >= config.short_ma_window
@@ -863,22 +863,12 @@ config = TrainingConfig(max_iters=max_iters_training, optimizer_lr=5e-4,
 max_hybrid_time = 10. # t + j ≤ T_max + J_max
 trained_params, aug_sys, final_aug_solution, results = train_neural_hybrid_equation(true_ball, x0, max_hybrid_time; config=config, solver_config, random_ic_generator=generate_random_ic_bouncing_ball, V_func=V_ball_energy)
 
-# Plot the final augmented solution
-println("\nPlotting trained system...")
-plt_height = plot(final_aug_solution, x -> [x[1]; x[3]], type=:time_only, title="Height - Trained", ylabel="Height (m)",
-    flow_color=[:steelblue, :orange], jump_color=[:navy, :coral], label=["True" "Neural"])
-plt_velocity = plot(final_aug_solution, x -> [x[2]; x[4]], type=:time_only, title="Velocity - Trained", ylabel="Velocity (m/s)",
-    flow_color=[:steelblue, :orange], jump_color=[:navy, :coral], label=["True" "Neural"])
-
-plt_comparison = plot(plt_height, plt_velocity, layout=(2, 1), size=(900, 600))
-display(plt_comparison)
-
 ################################################################################
 #### VALIDATION AND ANIMATION SECTION
 ################################################################################
 
 println("\n" * "="^60)
-println("LOADING DATA AND VALIDATION")
+println("TESTING")
 println("="^60)
 
 # Find and load the latest training data file
@@ -915,45 +905,15 @@ cost_history = loaded_results["cost_history"]
 parameter_history = loaded_results["parameter_history"]
 x0_batch = loaded_results["x0_batch"]
 
-# Create standalone neural system with true flow/jump sets
-standalone_neural = create_standalone_neural_system(true_ball, neural_sys)
-
-# Use one of the random initial conditions but with longer time domain
+# Testing hyperparameters
 test_x0 = [10., 3.]
 max_hybrid_time_training = 10.0
 validation_time = 20.0  # Longer than training time for extrapolation test
-
-println("Test initial condition: [$(round.(test_x0, digits=2))]")
-println("Training time domain: $max_hybrid_time_training s")
-println("Validation time domain: $validation_time s")
-
-# Solve both systems
 solver_config_test = HybridSolverConfig(verbose=false, dtmax=5e-3)
-true_solution_val = solve(true_ball, test_x0, validation_time; config=solver_config_test)
-neural_solution_val = solve(standalone_neural, test_x0, validation_time; config=solver_config_test, p=parameter_history[end])
-
-plot(true_solution_val, x -> x[1], flow_color=[:steelblue], jump_color=[:navy])
-plot!(neural_solution_val, x -> x[1], flow_color=[:orange], jump_color=[:coral])
-
-# Create individual plots and combine them for superimposed visualization
-plt_true_height = plot(true_solution_val, x -> x[1], flow_color=:steelblue, jump_color=:navy,
-    title="Height Validation - Extrapolation Test", ylabel="Height (m)")
-plt_neural_height = plot!(neural_solution_val, x -> x[1], flow_color=:orange, jump_color=:coral,
-    linestyle=:dash)
-
-# Add vertical line to show training domain boundary
 trueBallTestSol = solve(true_ball, test_x0, max_hybrid_time_training; config=solver_config_test)
 trueBallTestSol.final_time
 trueBallTestSol.total_jumps
-
 tmax, jmax = (trueBallTestSol.final_time, trueBallTestSol.total_jumps)
-hy.vline!((tmax, jmax), color=:red, linestyle=:dot, linewidth=2, label="")
-
-
-# Add legend manually
-plot!([], [], color=:steelblue, linewidth=2, label="True System")
-plot!([], [], color=:orange, linewidth=2, linestyle=:dash, label="Neural System")
-plot!([], [], color=:red, linestyle=:dot, linewidth=2, label="Training Domain")
 
 println("\n2) OPTIMIZATION HISTORY ANIMATION")
 println("-"^40)
@@ -1023,21 +983,21 @@ for (i, params) in enumerate(parameter_history[1:step_size:end])
         linewidth=1, alpha=0.3, label="Instantaneous Cost", color=:crimson)
 
     # Add moving averages for cleaner visualization
-    short_ma_window = 20
-    long_ma_window = 250
+    plot_short_ma_window = 20
+    plot_long_ma_window = 250
 
-    if length(current_costs) >= short_ma_window
-        short_ma = [sum(current_costs[max(1, j - (short_ma_window - 1)):j]) / min(j, short_ma_window)
+    if length(current_costs) >= plot_short_ma_window
+        short_ma = [sum(current_costs[max(1, j - (plot_short_ma_window - 1)):j]) / min(j, plot_short_ma_window)
                     for j in eachindex(current_costs)]
         plot!(plt_cost_anim, 1:length(short_ma), short_ma,
-            linewidth=3, color=:steelblue, label="MA$(short_ma_window)")
+            linewidth=3, color=:steelblue, label="MA$(plot_short_ma_window)")
     end
 
-    if length(current_costs) >= long_ma_window
-        long_ma = [sum(current_costs[max(1, j - (long_ma_window - 1)):j]) / min(j, long_ma_window)
+    if length(current_costs) >= plot_long_ma_window
+        long_ma = [sum(current_costs[max(1, j - (plot_long_ma_window - 1)):j]) / min(j, plot_long_ma_window)
                    for j in eachindex(current_costs)]
         plot!(plt_cost_anim, 1:length(long_ma), long_ma,
-            linewidth=3, color=:darkgreen, label="MA$(long_ma_window)")
+            linewidth=3, color=:darkgreen, label="MA$(plot_long_ma_window)")
     end
 
     # Combined plot
@@ -1186,160 +1146,3 @@ figure_file = joinpath(figs_dir, "combined_final_$timestamp.pdf")
 savefig(final_plot, figure_file)
 
 println("\nFigure saved to: $figure_file")
-
-
-loaded_results = load_training_results_hdf5(data_file)
-best_trained_params = loaded_results["best_params"]
-cost_history = loaded_results["cost_history"]
-parameter_history = loaded_results["parameter_history"]
-x0_batch = loaded_results["x0_batch"]
-
-println("\n1) VALIDATION WITH EXTRAPOLATION TEST")
-println("-"^40)
-
-# Create standalone neural system with true flow/jump sets
-standalone_neural = create_standalone_neural_system(true_ball, neural_sys)
-
-# Use one of the random initial conditions but with longer time domain
-test_x0 = [10., 3.]
-max_hybrid_time_training = 10.0
-validation_time = 20.0  # Longer than training time for extrapolation test
-
-println("Test initial condition: [$(round.(test_x0, digits=2))]")
-println("Training time domain: $max_hybrid_time_training s")
-println("Validation time domain: $validation_time s")
-
-# Solve both systems
-solver_config_test = HybridSolverConfig(verbose=false, dtmax=5e-3)
-true_solution_val = solve(true_ball, test_x0, validation_time; config=solver_config_test)
-neural_solution_val = solve(standalone_neural, test_x0, validation_time; config=solver_config_test, p=parameter_history[end])
-
-plot(true_solution_val, x -> x[1], flow_color=[:steelblue], jump_color=[:navy])
-plot!(neural_solution_val, x -> x[1], flow_color=[:orange], jump_color=[:coral])
-
-# Create individual plots and combine them for superimposed visualization
-plt_true_height = plot(true_solution_val, x -> x[1], flow_color=:steelblue, jump_color=:navy,
-    title="Height Validation - Extrapolation Test", ylabel="Height (m)")
-plt_neural_height = plot!(neural_solution_val, x -> x[1], flow_color=:orange, jump_color=:coral,
-    linestyle=:dash)
-
-# Add vertical line to show training domain boundary
-trueBallTestSol = solve(true_ball, test_x0, max_hybrid_time_training; config=solver_config_test)
-trueBallTestSol.final_time
-trueBallTestSol.total_jumps
-
-tmax, jmax = (trueBallTestSol.final_time, trueBallTestSol.total_jumps)
-hy.vline!((tmax, jmax), color=:red, linestyle=:dot, linewidth=2, label="")
-
-
-# Add legend manually
-plot!([], [], color=:steelblue, linewidth=2, label="True System")
-plot!([], [], color=:orange, linewidth=2, linestyle=:dash, label="Neural System")
-plot!([], [], color=:red, linestyle=:dot, linewidth=2, label="Training Domain")
-
-println("\n2) OPTIMIZATION HISTORY ANIMATION")
-println("-"^40)
-
-# Create animation of optimization history
-println("Creating optimization animation with $(length(parameter_history)) frames...")
-
-anim = Animation()
-step_size = max(1, div(length(parameter_history), 100))  # Limit to ~100 frames for reasonable file size
-
-# Add initial freeze frames (show first frame for 2 seconds at 5fps = 10 frames)
-initial_params = parameter_history[1]
-initial_solution = solve(aug_sys, combine_states(x0, x0), validation_time; config=HybridSolverConfig(verbose=false), p=initial_params)
-
-plt_height_initial = plot(initial_solution, x -> [x[1]; x[3]], flow_color=[:steelblue, :orange], jump_color=[:navy, :coral],
-    title="Training Progress - Initial (Iteration 0)", ylabel="Height (m)")
-plot!([], [], color=:steelblue, linewidth=2, label="True")
-plot!([], [], color=:orange, linewidth=2, label="Neural")
-
-plt_velocity_initial = plot(initial_solution, x -> [x[2]; x[4]], flow_color=[:steelblue, :orange], jump_color=[:navy, :coral],
-    title="", ylabel="Velocity (m/s)")
-plot!([], [], color=:steelblue, linewidth=2, label="True")
-plot!([], [], color=:orange, linewidth=2, label="Neural")
-
-plt_cost_initial = plot(title="", xlabel="Iteration", ylabel="Cost (log scale)", yscale=:log10)
-plot!(1:1, cost_history[1:1], linewidth=2, color=:crimson, label="Cost")
-
-plt_initial = plot(plt_height_initial, plt_velocity_initial, plt_cost_initial,
-    layout=@layout([a; b; c{0.4h}]), size=(900, 1000),
-    top_margin=2Plots.mm, bottom_margin=2Plots.mm)
-
-# Add 10 freeze frames (2 seconds at 5fps)
-for _ in 1:10
-    frame(anim, plt_initial)
-end
-
-
-
-for (i, params) in enumerate(parameter_history[1:step_size:end])
-    # Solve augmented system with current parameters over validation time domain
-    current_aug_solution = solve(aug_sys, combine_states(test_x0, test_x0), validation_time; config=HybridSolverConfig(verbose=false), p=params)
-
-    # Create individual plots and combine them (same as in callback)
-    plt_height_anim = plot(current_aug_solution, x -> [x[1]; x[3]], flow_color=[:steelblue, :orange], jump_color=[:navy, :coral],
-        title="Training Progress - Iteration $(i*step_size)", ylabel="Height (m)")
-
-    # Add vertical line at training time boundary
-    hy.vline!((tmax, jmax), color=:red, linestyle=:dash, linewidth=2, label="")
-
-    plot!([], [], color=:steelblue, linewidth=2, label="True")
-    plot!([], [], color=:orange, linewidth=2, label="Neural")
-
-    # Create velocity plots
-    plt_velocity_anim = plot(current_aug_solution, x -> [x[2]; x[4]], flow_color=[:steelblue, :orange], jump_color=[:navy, :coral],
-        title="", ylabel="Velocity (m/s)")
-
-    # Add vertical line at training time boundary  
-    hy.vline!((tmax, jmax), color=:red, linestyle=:dash, linewidth=2, label="")
-
-    plot!([], [], color=:steelblue, linewidth=2, label="True")
-    plot!([], [], color=:orange, linewidth=2, label="Neural")
-
-    # Cost evolution plot (same as in callback)
-    current_costs = cost_history[1:min(i * step_size, end)]
-    plt_cost_anim = plot(title="", xlabel="Iteration", ylabel="Cost (log scale)", yscale=:log10)
-
-    # Plot instantaneous cost with transparency
-    plot!(1:length(current_costs), current_costs,
-        linewidth=1, alpha=0.3, label="Instantaneous Cost", color=:crimson)
-
-    # Add moving averages for cleaner visualization
-    plot_short_ma_window = 20
-    long_ma_window = 250
-
-    if length(current_costs) >= plot_short_ma_window
-        short_ma = [sum(current_costs[max(1, j - (plot_short_ma_window - 1)):j]) / min(j, plot_short_ma_window)
-                    for j in eachindex(current_costs)]
-        plot!(plt_cost_anim, 1:length(short_ma), short_ma,
-            linewidth=3, color=:steelblue, label="MA$(plot_short_ma_window)")
-    end
-
-    if length(current_costs) >= long_ma_window
-        long_ma = [sum(current_costs[max(1, j - (long_ma_window - 1)):j]) / min(j, long_ma_window)
-                   for j in eachindex(current_costs)]
-        plot!(plt_cost_anim, 1:length(long_ma), long_ma,
-            linewidth=3, color=:darkgreen, label="MA$(long_ma_window)")
-    end
-
-    # Combined plot
-    plt_combined_anim = plot(plt_height_anim, plt_velocity_anim, plt_cost_anim,
-        layout=@layout([a; b; c{0.4h}]), size=(900, 1000),
-        top_margin=2Plots.mm, bottom_margin=2Plots.mm)
-
-    frame(anim, plt_combined_anim)
-
-    if i % 10 == 0
-        println("  Frame $i/$(div(length(parameter_history), step_size))")
-    end
-end
-
-# Save animation
-data_path = joinpath(dirname(@__FILE__),
-    "neural_hybrid_data")
-
-animation_file = joinpath(data_path, "training_animation_$(Dates.format(now(), "yyyy-mm-dd_HH-MM-SS")).gif")
-gif(anim, animation_file, fps=5)
-println("Animation saved to: $animation_file")
