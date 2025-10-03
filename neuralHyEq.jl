@@ -990,8 +990,6 @@ for _ in 1:10
     frame(anim, plt_initial)
 end
 
-
-
 for (i, params) in enumerate(parameter_history[1:step_size:end])
     # Solve augmented system with current parameters over validation time domain
     current_aug_solution = solve(aug_sys, combine_states(test_x0, test_x0), validation_time; config=HybridSolverConfig(verbose=false), p=params)
@@ -1190,9 +1188,6 @@ savefig(final_plot, figure_file)
 println("\nFigure saved to: $figure_file")
 
 
-
-
-
 loaded_results = load_training_results_hdf5(data_file)
 best_trained_params = loaded_results["best_params"]
 cost_history = loaded_results["cost_history"]
@@ -1312,14 +1307,14 @@ for (i, params) in enumerate(parameter_history[1:step_size:end])
         linewidth=1, alpha=0.3, label="Instantaneous Cost", color=:crimson)
 
     # Add moving averages for cleaner visualization
-    short_ma_window = 20
+    plot_short_ma_window = 20
     long_ma_window = 250
 
-    if length(current_costs) >= short_ma_window
-        short_ma = [sum(current_costs[max(1, j - (short_ma_window - 1)):j]) / min(j, short_ma_window)
+    if length(current_costs) >= plot_short_ma_window
+        short_ma = [sum(current_costs[max(1, j - (plot_short_ma_window - 1)):j]) / min(j, plot_short_ma_window)
                     for j in eachindex(current_costs)]
         plot!(plt_cost_anim, 1:length(short_ma), short_ma,
-            linewidth=3, color=:steelblue, label="MA$(short_ma_window)")
+            linewidth=3, color=:steelblue, label="MA$(plot_short_ma_window)")
     end
 
     if length(current_costs) >= long_ma_window
@@ -1348,153 +1343,3 @@ data_path = joinpath(dirname(@__FILE__),
 animation_file = joinpath(data_path, "training_animation_$(Dates.format(now(), "yyyy-mm-dd_HH-MM-SS")).gif")
 gif(anim, animation_file, fps=5)
 println("Animation saved to: $animation_file")
-
-
-################################################################################
-#### Paper Plot: Ĥ_int = (C×C,f×f̂, D×D, g×ĝ)
-################################################################################
-println("\n" * "="^60)
-println("PAPER PLOT")
-println("="^60)
-
-figs_dir = joinpath(dirname(@__FILE__), "figures")
-mkpath(figs_dir)
-timestamp = Dates.format(now(), "yyyy-mm-dd_HH-MM-SS")
-
-# Create standalone neural system with true flow/jump sets
-standalone_neural = create_standalone_neural_system(true_ball, neural_sys)
-
-n_iterations = length(parameter_history)
-snapshot_indices = [1, n_iterations]
-snapshot_labels = ["Initial", "Final"]
-
-tmax, jmax = (trueBallTestSol.final_time, trueBallTestSol.total_jumps)
-
-true_color = :dodgerblue
-neural_color = :darkorange
-true_jump = :navy
-neural_jump = :orangered
-
-println("Testing standalone neural system with true sets...")
-
-all_traj_plots = []
-
-for (snap_idx, (iter_idx, label)) in enumerate(zip(snapshot_indices, snapshot_labels))    
-    params = parameter_history[iter_idx]
-    
-    # Solve true system
-    true_solution = solve(true_ball, test_x0, validation_time;
-                         config=HybridSolverConfig(verbose=false))
-    
-    # Solve standalone neural system with true sets
-    neural_solution = solve(standalone_neural, test_x0, validation_time;
-                           config=HybridSolverConfig(verbose=false),
-                           p=params)
-    
-    p_x1 = hy.HybridPlot(:hybrid)
-    hy.vline!(p_x1, (tmax, jmax), style=:dash, color=:black, alpha=0.7)
-    
-    # Plot true system
-    plot!(p_x1, true_solution, x -> x[1],
-          flow_color=true_color,
-          jump_color=true_jump,
-          markersize=3,
-          ylabel=L"x_1",
-          legend=false,
-          title=label)
-    
-    # Plot neural system
-    plot!(p_x1, neural_solution, x -> x[1],
-          flow_color=neural_color,
-          jump_color=neural_jump,
-          markersize=3,
-          legend=false)
-    
-    push!(all_traj_plots, p_x1.plot_obj...)
-end
-
-# Set y-labels with larger font for t plots, hide labels for j plots
-plot!(all_traj_plots[1], ylabel=L"x_1", guidefontsize=12)
-plot!(all_traj_plots[2], ylabel="", yformatter=_->"")
-plot!(all_traj_plots[3], ylabel=L"x_1", guidefontsize=12)
-plot!(all_traj_plots[4], ylabel="", yformatter=_->"")
-
-# Add x-labels
-plot!(all_traj_plots[1], xlabel=L"t")
-plot!(all_traj_plots[2], xlabel=L"j")
-plot!(all_traj_plots[3], xlabel=L"t")
-plot!(all_traj_plots[4], xlabel=L"j")
-
-println("Creating cost history plot...")
-
-plt_cost = plot(xlabel="Iteration", ylabel="Loss",
-                yscale=:log10, legend=:topright,
-                xrotation=0,
-                bottom_margin=2Plots.mm)
-
-plot!(plt_cost, 1:length(cost_history), cost_history,
-    linewidth=3, alpha=0.2, label="Loss", color=:gray)
-
-short_ma_window = 20
-long_ma_window = 250
-
-if length(cost_history) >= short_ma_window
-    short_ma = [sum(cost_history[max(1, j - (short_ma_window - 1)):j]) / min(j, short_ma_window)
-                for j in eachindex(cost_history)]
-    plot!(plt_cost, 1:length(short_ma), short_ma,
-        linewidth=3, color=:mediumseagreen, label="MA$short_ma_window")
-end
-
-if length(cost_history) >= long_ma_window
-    long_ma = [sum(cost_history[max(1, j - (long_ma_window - 1)):j]) / min(j, long_ma_window)
-               for j in eachindex(cost_history)]
-    plot!(plt_cost, 1:length(long_ma), long_ma,
-        linewidth=3, color=:mediumpurple, label="MA$long_ma_window")
-end
-
-for idx in snapshot_indices
-    Plots.vline!(plt_cost, [idx], linestyle=:dash, color=:black, alpha=0.3, linewidth=1, label="")
-end
-
-println("Creating legend...")
-
-plt_legend = plot(xlims=(0,1), ylims=(0,1), 
-                 framestyle=:none, 
-                 legend=:inside,
-                 legend_position=:top,
-                 legend_columns=3,
-                 grid=false,
-                 showaxis=false,
-                 ticks=false)
-plot!(plt_legend, [], [], color=true_color, linewidth=3, label="Nominal")
-plot!(plt_legend, [], [], color=neural_color, linewidth=3, label="Neural")
-plot!(plt_legend, [], [], color=:black, linestyle=:dash, linewidth=1.5, label="Training Limit")
-
-println("Assembling final figure...")
-
-final_plot = plot(
-    plt_legend,
-    all_traj_plots...,
-    plt_cost,
-    layout=@layout([
-        a{0.04h}
-        grid(1, 4){0.45h}
-        b{0.35h}
-    ]),
-    size=(1400, 550),
-    link=:none,
-    left_margin=4Plots.mm,
-    right_margin=2Plots.mm,
-    bottom_margin=4Plots.mm,
-    top_margin=1Plots.mm
-)
-
-# Link y-axes pairwise: t plots together, j plots together
-plot!(final_plot, subplot=3, ylink=1)
-plot!(final_plot, subplot=4, ylink=2)
-
-figure_file = joinpath(figs_dir, "combined_final_$timestamp.pdf")
-savefig(final_plot, figure_file)
-
-println("\nFigure saved to: $figure_file")
-println("="^60)
