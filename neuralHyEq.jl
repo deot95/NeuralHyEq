@@ -915,7 +915,7 @@ trueBallTestSol.final_time
 trueBallTestSol.total_jumps
 tmax, jmax = (trueBallTestSol.final_time, trueBallTestSol.total_jumps)
 
-println("\n2) OPTIMIZATION HISTORY ANIMATION")
+println("\nOPTIMIZATION HISTORY ANIMATION")
 println("-"^40)
 
 # Create animation of optimization history
